@@ -1,0 +1,50 @@
+{
+  "project": "ods-ulpgc",
+  "institution_name": "Universidad de Las Palmas de Gran Canaria",
+  "institution_openalex_id": "I119635470",
+  "data_source": "OpenAlex",
+  "spreadsheet_name": "ods_ulpgc_datahub",
+  "worksheets": [
+    "publications",
+    "sdg_exploded",
+    "kpis_yearly",
+    "refresh_log"
+  ],
+  "update_schedule": {
+    "frequency": "semiannual",
+    "months": [
+      "01",
+      "07"
+    ],
+    "day": 1
+  },
+  "latest_snapshot": {
+    "snapshot_date": "2026-03-12",
+    "snapshot_label": "20260312T123803Z",
+    "analysis_start_year": 2021,
+    "analysis_end_year": 2025,
+    "raw_record_count": 7024,
+    "publications_row_count": 7024,
+    "sdg_exploded_row_count": 4164,
+    "kpis_yearly_row_count": 5,
+    "raw_file_latest": "data\\raw\\latest\\openalex_ulpgc_latest.json",
+    "raw_file_archive": "data\\raw\\archive\\openalex_ulpgc_20260312T123803Z.json",
+    "processed_files_latest": [
+      "data\\processed\\latest\\publications_latest.csv",
+      "data\\processed\\latest\\sdg_exploded_latest.csv",
+      "data\\processed\\latest\\kpis_yearly_latest.csv"
+    ],
+    "processed_files_archive": [
+      "data\\processed\\archive\\publications_20260312T123803Z.csv",
+      "data\\processed\\archive\\sdg_exploded_20260312T123803Z.csv",
+      "data\\processed\\archive\\kpis_yearly_20260312T123803Z.csv"
+    ],
+    "records_retrieved": 7024,
+    "records_publications": 7024,
+    "records_sdg_exploded": 4164,
+    "records_kpis_yearly": 5,
+    "status": "success",
+    "generated_at_utc": "2026-03-12T12:38:04+00:00",
+    "run_timestamp_utc": "2026-03-12T12:38:04+00:00"
+  }
+}

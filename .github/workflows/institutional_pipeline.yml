@@ -1,0 +1,105 @@
+name: Institutional OpenAlex pipeline
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_to_apps_script:
+        description: Publish processed outputs to the Apps Script web app after ETL
+        required: false
+        type: boolean
+        default: true
+  schedule:
+    - cron: "15 2 * * *"
+
+jobs:
+  update-and-publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -e .
+
+      - name: Run institutional pipeline (scheduled)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python -m institutional_pipeline.main --enforce-schedule
+
+      - name: Run institutional pipeline (manual with publishing)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.publish_to_apps_script }}
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python -m institutional_pipeline.main
+
+      - name: Run institutional pipeline (manual ETL only)
+        if: ${{ github.event_name == 'workflow_dispatch' && !inputs.publish_to_apps_script }}
+        env:
+          OPENALEX_API_KEY: ${{ secrets.OPENALEX_API_KEY }}
+        run: |
+          python -m institutional_pipeline.main --skip-sheets
+
+      - name: Inspect generated files
+        run: |
+          echo "=== pwd ==="
+          pwd
+          echo "=== tree data (depth 4) ==="
+          find data -maxdepth 4 -type f | sort || true
+          echo "=== ls src/institutional_pipeline ==="
+          ls -la src/institutional_pipeline || true
+
+      - name: Compress raw snapshot
+        if: ${{ hashFiles('data/raw/latest/openalex_works_latest.json') != '' }}
+        run: |
+          python - <<'PY'
+          import gzip
+          import json
+          import shutil
+          from pathlib import Path
+
+          metadata_path = Path("data/manifests/latest_snapshot_metadata.json")
+          metadata = json.loads(metadata_path.read_text(encoding="utf-8"))
+          snapshot_label = metadata["latest_snapshot"]["snapshot_label"]
+          project_slug = metadata.get("project", "ods-ulpgc")
+
+          source_path = Path("data/raw/latest/openalex_works_latest.json")
+          output_dir = Path("output/raw")
+          output_dir.mkdir(parents=True, exist_ok=True)
+          artifact_path = output_dir / f"openalex_{project_slug}_{snapshot_label}.json.gz"
+
+          with source_path.open("rb") as source_file, gzip.open(artifact_path, "wb") as target_file:
+              shutil.copyfileobj(source_file, target_file)
+
+          print(f"Created raw artifact: {artifact_path}")
+          PY
+
+      - name: Upload raw snapshot artifact
+        if: ${{ hashFiles('output/raw/*.json.gz') != '' }}
+        uses: actions/upload-artifact@v6
+        with:
+          name: raw-openalex-snapshot
+          path: output/raw/*.json.gz
+          if-no-files-found: error
+
+      - name: Publish outputs to Apps Script
+        if: ${{ (github.event_name != 'workflow_dispatch' || inputs.publish_to_apps_script) && hashFiles('data/raw/latest/openalex_works_latest.json') != '' }}
+        env:
+          APPS_SCRIPT_WEBAPP_URL: ${{ secrets.APPS_SCRIPT_WEBAPP_URL }}
+          APPS_SCRIPT_SHARED_SECRET: ${{ secrets.APPS_SCRIPT_SHARED_SECRET }}
+          APPS_SCRIPT_MAX_FILE_BYTES: "8000000"
+        run: |
+          python -m institutional_pipeline.publish_payload

@@ -1,0 +1,20 @@
+[project]
+slug = "ods-ulpgc"
+spreadsheet_name = "ods_ulpgc_datahub"
+worksheets = ["publications", "sdg_exploded", "kpis_yearly", "refresh_log"]
+
+[institution]
+name = "Universidad de Las Palmas de Gran Canaria"
+openalex_institution_id = "I119635470"
+ror = "https://ror.org/01x7qze81"
+
+[openalex]
+document_types = ["article", "review"]
+
+[analysis]
+window_years = 5
+end_year_offset = 1
+
+[schedule]
+months = [1, 7]
+day = 1
