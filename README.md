@@ -1,15 +1,21 @@
 # Institutional OpenAlex to Google Sheets Pipeline
 
-This project harvests institutional publications from OpenAlex, transforms them into analytical tables, and publishes the results to Google Sheets.
+This repository implements an automated data pipeline for harvesting, 
+transforming, and publishing institutional research output data from 
+OpenAlex to Google Sheets. The current deployment targets the Universidad 
+de Las Palmas de Gran Canaria (ULPGC), where the output feeds a Tableau 
+Public story focused on research production metrics and SDG contribution 
+analysis. The pipeline architecture is institution-agnostic: adapting it 
+to another organisation requires editing a single configuration file.
 
-In the current ULPGC setup, the final goal is to maintain a Google Sheets dataset that feeds a Tableau Public story focused on research output and SDG-related analysis. The repository is no longer tied to a single institution, though: ULPGC remains the default profile, and other institutions can adapt the pipeline by editing one configuration file.
-
-The raw OpenAlex snapshot is not published through Apps Script. That channel is now reserved for the analytical outputs, the `refresh_log`, and the snapshot metadata. The raw JSON is kept as a compressed GitHub Actions artifact instead.
+Raw OpenAlex snapshots are not published through the Apps Script channel. 
+That channel is reserved for analytical outputs, the `refresh_log`, and 
+snapshot metadata. Raw JSON is retained as a compressed GitHub Actions 
+artifact.
 
 ## Quick Start
 
 Install dependencies and run the pipeline locally:
-
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -18,17 +24,18 @@ python -m institutional_pipeline.main --skip-sheets
 ```
 
 Run the test suite:
-
 ```bash
 pip install pytest
 python -m pytest -q
 ```
 
-## The Main File to Edit
+## Institution Configuration
 
-If another institution wants to reuse this repository, the first file to edit is [`config/institution.toml`](/C:/ods-ulpgc/config/institution.toml).
+The primary configuration file is 
+[`config/institution.toml`](/C:/ods-ulpgc/config/institution.toml).
 
-That file acts as the institution profile for the pipeline. It controls:
+This file defines the institution profile that governs pipeline behaviour. 
+Configurable parameters include:
 
 - `institution.name`
 - `institution.openalex_institution_id`
@@ -41,184 +48,196 @@ That file acts as the institution profile for the pipeline. It controls:
 - `schedule.months`
 - `schedule.day`
 
-ULPGC remains in that file as the default example so the configuration is easy to edit instead of rebuilding it from scratch.
-
-If you want multiple profiles, create additional TOML files and call the CLI with `--settings`:
-
+The ULPGC profile ships as the default reference. Multiple institution 
+profiles are supported via the `--settings` flag or the 
+`ODS_SETTINGS_PATH` environment variable:
 ```bash
 python -m institutional_pipeline.main --settings config/institution.toml
 python -m institutional_pipeline.main --settings config/my_other_institution.toml
 ```
 
-You can also point to a profile with `ODS_SETTINGS_PATH`.
-
 ## Execution Model
 
-The main workflow lives in [`.github/workflows/institutional_pipeline.yml`](/C:/ods-ulpgc/.github/workflows/institutional_pipeline.yml).
+The main workflow is defined in 
+[`.github/workflows/institutional_pipeline.yml`](/C:/ods-ulpgc/.github/workflows/institutional_pipeline.yml).
 
-There are two execution modes:
+Two execution modes are available:
 
-1. Scheduled execution
-   The workflow runs daily in GitHub Actions, but the pipeline only proceeds when the current date matches the schedule defined in `config/institution.toml`.
+**Scheduled execution.** The workflow runs daily in GitHub Actions. The 
+pipeline proceeds only when the current date matches the schedule defined 
+in `config/institution.toml`. The default ULPGC profile triggers on 
+January 1st and July 1st.
 
-2. Manual execution
-   A manual `workflow_dispatch` run always executes immediately, even if the date does not match the configured schedule.
+**Manual execution.** A `workflow_dispatch` run executes immediately, 
+regardless of the configured schedule.
 
-The current ULPGC profile is set to run on:
+By default, the pipeline analyses the last five fully closed calendar 
+years, excluding the current year. This window advances automatically 
+with each run:
 
-- January 1st
-- July 1st
+| Execution date | Analysis window |
+|----------------|-----------------|
+| 2026-07-01     | 2021–2025       |
+| 2027-01-01     | 2022–2026       |
+| 2027-07-01     | 2022–2026       |
 
-It analyzes the last five fully closed years by default, which means the current year is excluded unless `analysis.end_year_offset` is changed.
-
-Examples for the default ULPGC profile:
-
-- `2026-07-01` -> `2021-2025`
-- `2027-01-01` -> `2022-2026`
-- `2027-07-01` -> `2022-2026`
+The `analysis.end_year_offset` parameter adjusts this behaviour when 
+needed.
 
 ## Operational Flow
 
-The production flow is straightforward:
+The production sequence follows five stages:
 
-1. Fetch works from OpenAlex.
-2. Transform the raw response into `publications`, `sdg_exploded`, and `kpis_yearly`.
-3. Persist raw data, processed outputs, metadata, and `refresh_log`.
-4. Compress the raw JSON and keep it as a GitHub Actions artifact.
-5. Publish only the files that fit the Apps Script channel.
+1. Fetch works from OpenAlex using the configured institution profile.
+2. Transform the raw response into three analytical tables: 
+   `publications`, `sdg_exploded`, and `kpis_yearly`.
+3. Persist raw data, processed outputs, snapshot metadata, and the 
+   `refresh_log`.
+4. Compress the raw JSON and retain it as a GitHub Actions artifact.
+5. Publish the files that fall within the Apps Script channel's scope.
 
-The manual workflow includes the `publish_to_apps_script` input:
-
-- `true`: run ETL and publishing
-- `false`: run ETL only and skip remote publishing
-
-When a scheduled run falls outside the configured calendar, the pipeline exits cleanly and the workflow skips artifact and publishing steps.
+The `publish_to_apps_script` input in manual runs controls whether the 
+ETL runs with remote publishing (`true`) or without it (`false`). 
+Scheduled runs that fall outside the configured calendar exit cleanly; 
+the workflow skips artifact upload and publishing steps.
 
 ## OpenAlex Integration
 
-The OpenAlex client:
+The OpenAlex client is designed for reliability and reproducibility:
 
-- uses a clear `User-Agent`
-- supports `OPENALEX_API_KEY` when available
-- can filter by either an OpenAlex institution ID or a ROR identifier
-- supports configurable document types such as `article`, `review`, or `book-chapter`
-- logs pagination, cursors, API-key usage, and record counts
+- Declares a descriptive `User-Agent` header on every request.
+- Supports the `OPENALEX_API_KEY` environment variable when available.
+- Accepts filtering by either OpenAlex institution ID or ROR identifier.
+- Accepts configurable document types: `article`, `review`, 
+  `book-chapter`, and others.
+- Logs pagination cursors, API-key usage, and record counts for 
+  traceability.
 
 ## Apps Script Publishing
 
-The web app code lives in [`apps_script/Code.js`](/C:/ods-ulpgc/apps_script/Code.js).
+The web application code is in 
+[`apps_script/Code.js`](/C:/ods-ulpgc/apps_script/Code.js).
 
-The publishing layer includes a few safeguards that matter in practice:
+The publishing layer implements four operational safeguards:
 
-- `LockService` avoids concurrent executions
-- Drive files are updated in place instead of `trash + create`
-- Google Sheets updates use staging and promotion
-- temporary sheets are rolled back and cleaned up if promotion fails
+- `LockService` prevents concurrent executions.
+- Drive files are updated in place rather than deleted and recreated.
+- Google Sheets updates use a staging-and-promotion pattern.
+- Temporary sheets are rolled back and cleaned up if promotion fails.
 
-Apps Script project properties hold:
+The following Apps Script project properties must be set in the Apps 
+Script environment (not in the Python `.env` file):
 
 - `ROOT_FOLDER_ID`
 - `SPREADSHEET_ID`
 - `WEBHOOK_SHARED_SECRET`
 
-Those values are not stored in the Python `.env` file.
-
 ## Outputs and Traceability
 
-The project keeps four operational outputs at the center of the workflow:
+Four artefacts anchor the operational workflow:
 
-- analytical CSV files
-- `latest_snapshot_metadata.json`
-- `refresh_log.csv`
-- the compressed raw OpenAlex artifact
+- Analytical CSV files (`publications`, `sdg_exploded`, `kpis_yearly`).
+- `latest_snapshot_metadata.json` — the canonical snapshot manifest.
+- `refresh_log.csv` — a compact execution history with a stable schema.
+- The compressed raw OpenAlex artefact retained by GitHub Actions.
 
-[`refresh_log.csv`](/C:/ods-ulpgc/data/logs/refresh_log.csv) uses a stable schema oriented to operational traceability. The JSON manifest remains the richer artifact, while the CSV keeps the compact execution history.
+The JSON manifest carries the full snapshot record; `refresh_log.csv` 
+provides the lightweight operational trace. Current `refresh_log.csv` 
+schema:
 
-Current `refresh_log.csv` columns:
+| Column | Description |
+|--------|-------------|
+| `run_timestamp_utc` | UTC timestamp of pipeline execution |
+| `snapshot_date` | Date of the OpenAlex snapshot |
+| `snapshot_label` | Human-readable snapshot identifier |
+| `analysis_start_year` | First year of the analysis window |
+| `analysis_end_year` | Last year of the analysis window |
+| `raw_record_count` | Records retrieved from OpenAlex |
+| `publications_row_count` | Rows in the publications table |
+| `sdg_exploded_row_count` | Rows in the SDG-exploded table |
+| `kpis_yearly_row_count` | Rows in the yearly KPI table |
+| `status` | Pipeline exit status |
 
-- `run_timestamp_utc`
-- `snapshot_date`
-- `snapshot_label`
-- `analysis_start_year`
-- `analysis_end_year`
-- `raw_record_count`
-- `publications_row_count`
-- `sdg_exploded_row_count`
-- `kpis_yearly_row_count`
-- `status`
+## Environment Variables
 
-## Configuration
+The variable template is in 
+[`.env.example`](/C:/ods-ulpgc/.env.example). Python reads:
 
-The environment variable template lives in [`.env.example`](/C:/ods-ulpgc/.env.example).
+| Variable | Purpose |
+|----------|---------|
+| `OPENALEX_API_KEY` | Optional API key for OpenAlex |
+| `ODS_SETTINGS_PATH` | Path to the active institution profile |
+| `APPS_SCRIPT_WEBAPP_URL` | Endpoint for the Apps Script web app |
+| `APPS_SCRIPT_SHARED_SECRET` | Shared secret for webhook authentication |
+| `APPS_SCRIPT_MAX_FILE_BYTES` | Maximum payload size for publishing |
 
-Python uses:
-
-- `OPENALEX_API_KEY`
-- `ODS_SETTINGS_PATH`
-- `APPS_SCRIPT_WEBAPP_URL`
-- `APPS_SCRIPT_SHARED_SECRET`
-- `APPS_SCRIPT_MAX_FILE_BYTES`
-
-`load_dotenv()` is called only in CLI entry points and not during library import.
+`load_dotenv()` is called only in CLI entry points, not during library 
+import, preserving side-effect-free module loading.
 
 ## Testing
 
-The regression suite runs with `pytest` and is automated through [`.github/workflows/tests.yml`](/C:/ods-ulpgc/.github/workflows/tests.yml).
+The regression suite runs under `pytest` and is automated through 
+[`.github/workflows/tests.yml`](/C:/ods-ulpgc/.github/workflows/tests.yml). 
+Current test coverage spans:
 
-Current test coverage includes:
+| Test file | Scope |
+|-----------|-------|
+| `tests/test_transform.py` | Transformation logic |
+| `tests/test_openalex_client.py` | OpenAlex client behaviour |
+| `tests/test_publish_payload.py` | Publishing payload construction |
+| `tests/test_snapshot_manager.py` | Snapshot persistence and rotation |
+| `tests/test_main.py` | End-to-end pipeline orchestration |
+| `tests/test_institution_settings.py` | Configuration loading and validation |
 
-- [`tests/test_transform.py`](/C:/ods-ulpgc/tests/test_transform.py)
-- [`tests/test_openalex_client.py`](/C:/ods-ulpgc/tests/test_openalex_client.py)
-- [`tests/test_publish_payload.py`](/C:/ods-ulpgc/tests/test_publish_payload.py)
-- [`tests/test_snapshot_manager.py`](/C:/ods-ulpgc/tests/test_snapshot_manager.py)
-- [`tests/test_main.py`](/C:/ods-ulpgc/tests/test_main.py)
-- [`tests/test_institution_settings.py`](/C:/ods-ulpgc/tests/test_institution_settings.py)
+## Implementation Notes
 
-## Notes from the Current Review
+The current codebase was reviewed against the local implementation and 
+verified against the external behaviour of `python-dotenv` and `requests` 
+via Context7. Three areas were confirmed to align with documented 
+behaviour:
 
-I reviewed the current implementation against the local codebase and checked the external behavior of `python-dotenv` and `requests` through Context7.
+- `load_dotenv()` is invoked at CLI entry points only, consistent with 
+  the intent to keep library imports side-effect free.
+- `requests` calls carry explicit per-request timeouts; timeouts are 
+  not set globally on the session, which matches the library's design.
+- JSON decoding is wrapped so that malformed responses surface as 
+  controlled runtime errors rather than silent failures.
 
-The code is aligned with the documented behavior in the areas that matter most here:
-
-- `load_dotenv()` is used in CLI entry points rather than during module import, which matches the current intent of keeping library imports side-effect free.
-- `requests` calls use explicit per-request timeouts, which is important because timeouts are applied per request, not globally on a session.
-- JSON decoding is already wrapped so invalid JSON surfaces as a controlled runtime error.
-
-I did not find a docs-level issue that needed a code change in this review pass.
+No documentation-level discrepancies requiring code changes were 
+identified in this review pass.
 
 ## Project Structure
-
 ```text
 ods-ulpgc/
-|-- .github/
-|   |-- workflows/
-|       |-- institutional_pipeline.yml
-|       `-- tests.yml
-|-- apps_script/
-|   |-- appsscript.json
-|   `-- Code.js
-|-- config/
-|   `-- institution.toml
-|-- data/
-|   |-- manifests/
-|   |   `-- latest_snapshot_metadata.json
-|   |-- raw/
-|   |   |-- latest/
-|   |   `-- archive/
-|   |-- processed/
-|   |   |-- latest/
-|   |   `-- archive/
-|   `-- logs/
-|-- src/
-|   `-- institutional_pipeline/
-|       |-- __init__.py
-|       |-- config.py
-|       |-- institution_settings.py
-|       |-- main.py
-|       |-- openalex_client.py
-|       |-- publish_payload.py
-|       |-- snapshot_manager.py
-|       |-- sheets_writer.py
-|       `-- transform.py
-`-- tests/
+├── .github/
+│   └── workflows/
+│       ├── institutional_pipeline.yml
+│       └── tests.yml
+├── apps_script/
+│   ├── appsscript.json
+│   └── Code.js
+├── config/
+│   └── institution.toml
+├── data/
+│   ├── manifests/
+│   │   └── latest_snapshot_metadata.json
+│   ├── raw/
+│   │   ├── latest/
+│   │   └── archive/
+│   ├── processed/
+│   │   ├── latest/
+│   │   └── archive/
+│   └── logs/
+├── src/
+│   └── institutional_pipeline/
+│       ├── __init__.py
+│       ├── config.py
+│       ├── institution_settings.py
+│       ├── main.py
+│       ├── openalex_client.py
+│       ├── publish_payload.py
+│       ├── snapshot_manager.py
+│       ├── sheets_writer.py
+│       └── transform.py
+└── tests/
 ```
