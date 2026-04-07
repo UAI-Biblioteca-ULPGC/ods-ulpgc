@@ -1,21 +1,39 @@
-# Institutional OpenAlex to Google Sheets Pipeline
+# ODS-ULPGC: Institutional Research Output Pipeline
 
-This repository implements an automated data pipeline for harvesting, 
-transforming, and publishing institutional research output data from 
-OpenAlex to Google Sheets. The current deployment targets the Universidad 
-de Las Palmas de Gran Canaria (ULPGC), where the output feeds a Tableau 
-Public story focused on research production metrics and SDG contribution 
-analysis. The pipeline architecture is institution-agnostic: adapting it 
-to another organisation requires editing a single configuration file.
+## Descripción institucional / Institutional Abstract
 
-Raw OpenAlex snapshots are not published through the Apps Script channel. 
-That channel is reserved for analytical outputs, the `refresh_log`, and 
-snapshot metadata. Raw JSON is retained as a compressed GitHub Actions 
+Este repositorio contiene la infraestructura de datos desarrollada por la
+Biblioteca Universitaria de la Universidad de Las Palmas de Gran Canaria
+(ULPGC) para la recolección, transformación y publicación automatizada de
+la producción científica institucional a partir de OpenAlex. Los resultados
+alimentan un panel de visualización en Tableau Public orientado al
+seguimiento de los indicadores de investigación y la contribución
+institucional a los Objetivos de Desarrollo Sostenible (ODS) de la Agenda
+2030. La arquitectura del sistema es reutilizable: cualquier institución
+puede adaptar el pipeline modificando un único archivo de configuración.
+
+---
+
+This repository contains the data infrastructure developed by the
+University Library of the Universidad de Las Palmas de Gran Canaria (ULPGC)
+for the automated harvesting, transformation, and publication of
+institutional research output from OpenAlex. The results feed a Tableau
+Public dashboard tracking research performance indicators and the
+institution's contribution to the Sustainable Development Goals (SDGs) of
+the 2030 Agenda. The pipeline architecture is reusable: any institution can
+adapt it by editing a single configuration file.
+
+---
+
+Raw OpenAlex snapshots are not published through the Apps Script channel.
+That channel is reserved for analytical outputs, the `refresh_log`, and
+snapshot metadata. Raw JSON is retained as a compressed GitHub Actions
 artifact.
 
 ## Quick Start
 
 Install dependencies and run the pipeline locally:
+
 ```bash
 python -m pip install --upgrade pip
 pip install -r requirements.txt
@@ -24,6 +42,7 @@ python -m institutional_pipeline.main --skip-sheets
 ```
 
 Run the test suite:
+
 ```bash
 pip install pytest
 python -m pytest -q
@@ -31,10 +50,10 @@ python -m pytest -q
 
 ## Institution Configuration
 
-The primary configuration file is 
+The primary configuration file is
 [`config/institution.toml`](/C:/ods-ulpgc/config/institution.toml).
 
-This file defines the institution profile that governs pipeline behaviour. 
+This file defines the institution profile that governs pipeline behaviour.
 Configurable parameters include:
 
 - `institution.name`
@@ -48,9 +67,10 @@ Configurable parameters include:
 - `schedule.months`
 - `schedule.day`
 
-The ULPGC profile ships as the default reference. Multiple institution 
-profiles are supported via the `--settings` flag or the 
+The ULPGC profile ships as the default reference. Multiple institution
+profiles are supported via the `--settings` flag or the
 `ODS_SETTINGS_PATH` environment variable:
+
 ```bash
 python -m institutional_pipeline.main --settings config/institution.toml
 python -m institutional_pipeline.main --settings config/my_other_institution.toml
@@ -58,21 +78,21 @@ python -m institutional_pipeline.main --settings config/my_other_institution.tom
 
 ## Execution Model
 
-The main workflow is defined in 
+The main workflow is defined in
 [`.github/workflows/institutional_pipeline.yml`](/C:/ods-ulpgc/.github/workflows/institutional_pipeline.yml).
 
 Two execution modes are available:
 
-**Scheduled execution.** The workflow runs daily in GitHub Actions. The 
-pipeline proceeds only when the current date matches the schedule defined 
-in `config/institution.toml`. The default ULPGC profile triggers on 
+**Scheduled execution.** The workflow runs daily in GitHub Actions. The
+pipeline proceeds only when the current date matches the schedule defined
+in `config/institution.toml`. The default ULPGC profile triggers on
 January 1st and July 1st.
 
-**Manual execution.** A `workflow_dispatch` run executes immediately, 
+**Manual execution.** A `workflow_dispatch` run executes immediately,
 regardless of the configured schedule.
 
-By default, the pipeline analyses the last five fully closed calendar 
-years, excluding the current year. This window advances automatically 
+By default, the pipeline analyses the last five fully closed calendar
+years, excluding the current year. This window advances automatically
 with each run:
 
 | Execution date | Analysis window |
@@ -81,7 +101,7 @@ with each run:
 | 2027-01-01     | 2022–2026       |
 | 2027-07-01     | 2022–2026       |
 
-The `analysis.end_year_offset` parameter adjusts this behaviour when 
+The `analysis.end_year_offset` parameter adjusts this behaviour when
 needed.
 
 ## Operational Flow
@@ -89,16 +109,16 @@ needed.
 The production sequence follows five stages:
 
 1. Fetch works from OpenAlex using the configured institution profile.
-2. Transform the raw response into three analytical tables: 
+2. Transform the raw response into three analytical tables:
    `publications`, `sdg_exploded`, and `kpis_yearly`.
-3. Persist raw data, processed outputs, snapshot metadata, and the 
+3. Persist raw data, processed outputs, snapshot metadata, and the
    `refresh_log`.
 4. Compress the raw JSON and retain it as a GitHub Actions artifact.
 5. Publish the files that fall within the Apps Script channel's scope.
 
-The `publish_to_apps_script` input in manual runs controls whether the 
-ETL runs with remote publishing (`true`) or without it (`false`). 
-Scheduled runs that fall outside the configured calendar exit cleanly; 
+The `publish_to_apps_script` input in manual runs controls whether the
+ETL runs with remote publishing (`true`) or without it (`false`).
+Scheduled runs that fall outside the configured calendar exit cleanly;
 the workflow skips artifact upload and publishing steps.
 
 ## OpenAlex Integration
@@ -108,14 +128,14 @@ The OpenAlex client is designed for reliability and reproducibility:
 - Declares a descriptive `User-Agent` header on every request.
 - Supports the `OPENALEX_API_KEY` environment variable when available.
 - Accepts filtering by either OpenAlex institution ID or ROR identifier.
-- Accepts configurable document types: `article`, `review`, 
+- Accepts configurable document types: `article`, `review`,
   `book-chapter`, and others.
-- Logs pagination cursors, API-key usage, and record counts for 
+- Logs pagination cursors, API-key usage, and record counts for
   traceability.
 
 ## Apps Script Publishing
 
-The web application code is in 
+The web application code is in
 [`apps_script/Code.js`](/C:/ods-ulpgc/apps_script/Code.js).
 
 The publishing layer implements four operational safeguards:
@@ -125,7 +145,7 @@ The publishing layer implements four operational safeguards:
 - Google Sheets updates use a staging-and-promotion pattern.
 - Temporary sheets are rolled back and cleaned up if promotion fails.
 
-The following Apps Script project properties must be set in the Apps 
+The following Apps Script project properties must be set in the Apps
 Script environment (not in the Python `.env` file):
 
 - `ROOT_FOLDER_ID`
@@ -141,8 +161,8 @@ Four artefacts anchor the operational workflow:
 - `refresh_log.csv` — a compact execution history with a stable schema.
 - The compressed raw OpenAlex artefact retained by GitHub Actions.
 
-The JSON manifest carries the full snapshot record; `refresh_log.csv` 
-provides the lightweight operational trace. Current `refresh_log.csv` 
+The JSON manifest carries the full snapshot record; `refresh_log.csv`
+provides the lightweight operational trace. Current `refresh_log.csv`
 schema:
 
 | Column | Description |
@@ -160,7 +180,7 @@ schema:
 
 ## Environment Variables
 
-The variable template is in 
+The variable template is in
 [`.env.example`](/C:/ods-ulpgc/.env.example). Python reads:
 
 | Variable | Purpose |
@@ -171,13 +191,13 @@ The variable template is in
 | `APPS_SCRIPT_SHARED_SECRET` | Shared secret for webhook authentication |
 | `APPS_SCRIPT_MAX_FILE_BYTES` | Maximum payload size for publishing |
 
-`load_dotenv()` is called only in CLI entry points, not during library 
+`load_dotenv()` is called only in CLI entry points, not during library
 import, preserving side-effect-free module loading.
 
 ## Testing
 
-The regression suite runs under `pytest` and is automated through 
-[`.github/workflows/tests.yml`](/C:/ods-ulpgc/.github/workflows/tests.yml). 
+The regression suite runs under `pytest` and is automated through
+[`.github/workflows/tests.yml`](/C:/ods-ulpgc/.github/workflows/tests.yml).
 Current test coverage spans:
 
 | Test file | Scope |
@@ -191,22 +211,23 @@ Current test coverage spans:
 
 ## Implementation Notes
 
-The current codebase was reviewed against the local implementation and 
-verified against the external behaviour of `python-dotenv` and `requests` 
-via Context7. Three areas were confirmed to align with documented 
+The current codebase was reviewed against the local implementation and
+verified against the external behaviour of `python-dotenv` and `requests`
+via Context7. Three areas were confirmed to align with documented
 behaviour:
 
-- `load_dotenv()` is invoked at CLI entry points only, consistent with 
+- `load_dotenv()` is invoked at CLI entry points only, consistent with
   the intent to keep library imports side-effect free.
-- `requests` calls carry explicit per-request timeouts; timeouts are 
+- `requests` calls carry explicit per-request timeouts; timeouts are
   not set globally on the session, which matches the library's design.
-- JSON decoding is wrapped so that malformed responses surface as 
+- JSON decoding is wrapped so that malformed responses surface as
   controlled runtime errors rather than silent failures.
 
-No documentation-level discrepancies requiring code changes were 
+No documentation-level discrepancies requiring code changes were
 identified in this review pass.
 
 ## Project Structure
+
 ```text
 ods-ulpgc/
 ├── .github/
@@ -241,3 +262,7 @@ ods-ulpgc/
 │       └── transform.py
 └── tests/
 ```
+
+## License
+
+[MIT](LICENSE)
