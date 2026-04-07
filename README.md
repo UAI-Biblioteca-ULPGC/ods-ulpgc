@@ -112,6 +112,9 @@ The production sequence follows five stages:
 1. Fetch works from OpenAlex using the configured institution profile.
 2. Transform the raw response into three analytical tables:
    `publications`, `sdg_exploded`, and `kpis_yearly`.
+   In `sdg_exploded`, every publication is retained even when no SDG is
+   assigned; those rows keep `sdg_code`, `sdg_label`, and `score` empty so
+   downstream statistics and visualizations can preserve the full corpus.
 3. Persist raw data, processed outputs, snapshot metadata, and the
    `refresh_log`.
 4. Compress the raw JSON and retain it as a GitHub Actions artifact.

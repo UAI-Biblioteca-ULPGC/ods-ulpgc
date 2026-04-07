@@ -104,8 +104,16 @@ def _extract_sdg_rows(work: dict[str, Any]) -> list[dict[str, Any]]:
     publication_year = work.get("publication_year")
 
     raw_sdgs = work.get("sustainable_development_goals")
-    if not isinstance(raw_sdgs, list):
-        return []
+    if not isinstance(raw_sdgs, list) or len(raw_sdgs) == 0:
+        return [
+            {
+                "work_id": work_id,
+                "publication_year": publication_year,
+                "sdg_code": None,
+                "sdg_label": None,
+                "score": None,
+            }
+        ]
 
     rows: list[dict[str, Any]] = []
     for sdg in raw_sdgs:
@@ -218,16 +226,17 @@ def build_kpis_yearly_df(
         sdg["publication_year"] = pd.to_numeric(
             sdg["publication_year"], errors="coerce"
         ).astype("Int64")
+        sdg_with_match = sdg.dropna(subset=["sdg_code"])
 
         sdg_mentions = (
-            sdg.groupby("publication_year", dropna=True)
+            sdg_with_match.groupby("publication_year", dropna=True)
             .size()
             .rename("total_sdg_mentions")
             .reset_index()
         )
 
         publications_with_sdg = (
-            sdg.dropna(subset=["work_id"])
+            sdg_with_match.dropna(subset=["work_id"])
             .groupby("publication_year", dropna=True)["work_id"]
             .nunique()
             .rename("publications_with_sdg")

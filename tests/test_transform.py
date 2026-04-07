@@ -129,7 +129,7 @@ def test_build_sdg_exploded_df_extracts_rows_and_scores() -> None:
     sdg_exploded_df = build_sdg_exploded_df(sample_raw_works())
 
     assert list(sdg_exploded_df.columns) == SDG_COLUMNS
-    assert len(sdg_exploded_df.index) == 3
+    assert len(sdg_exploded_df.index) == 4
 
     first_row = sdg_exploded_df.iloc[0].to_dict()
     assert first_row["work_id"] == "https://openalex.org/W1"
@@ -138,8 +138,14 @@ def test_build_sdg_exploded_df_extracts_rows_and_scores() -> None:
     assert math.isclose(first_row["score"], 0.85)
 
     third_row = sdg_exploded_df.iloc[2].to_dict()
-    assert third_row["sdg_code"] == "14"
+    assert third_row["work_id"] == "https://openalex.org/W2"
+    assert pd.isna(third_row["sdg_code"])
+    assert pd.isna(third_row["sdg_label"])
     assert pd.isna(third_row["score"])
+
+    fourth_row = sdg_exploded_df.iloc[3].to_dict()
+    assert fourth_row["sdg_code"] == "14"
+    assert pd.isna(fourth_row["score"])
 
 
 def test_build_kpis_yearly_df_keeps_closed_window_and_calculates_metrics() -> None:
@@ -187,5 +193,5 @@ def test_build_outputs_returns_the_three_publishable_dataframes() -> None:
     )
 
     assert len(publications_df.index) == 3
-    assert len(sdg_exploded_df.index) == 3
+    assert len(sdg_exploded_df.index) == 4
     assert kpis_df["publication_year"].tolist() == [2021, 2022]
