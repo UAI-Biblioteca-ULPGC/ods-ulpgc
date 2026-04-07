@@ -9,7 +9,7 @@ openalex_institution_id = "I119635470"
 ror = "https://ror.org/01x7qze81"
 
 [openalex]
-document_types = ["article", "review"]
+document_types = ["article", "review", "book", "book-chapter", "dataset", "preprint"]
 
 [analysis]
 window_years = 5

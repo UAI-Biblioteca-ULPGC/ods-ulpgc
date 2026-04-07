@@ -22,7 +22,7 @@ def _build_test_settings() -> InstitutionSettings:
         institution_name="Demo University",
         openalex_institution_id="I123",
         institution_ror="https://ror.org/12345",
-        document_types=("article", "review"),
+        document_types=("article", "review", "book", "book-chapter", "dataset", "preprint"),
         spreadsheet_name="demo_sheet",
         worksheets=("publications", "sdg_exploded", "kpis_yearly", "refresh_log"),
         window_years=5,
@@ -152,7 +152,14 @@ def test_snapshot_outputs_and_refresh_log_are_written(
         assert persisted_metadata["raw_artifact"]["source_file_bytes"] is not None
         assert persisted_metadata["institution_openalex_id"] == "I123"
         assert persisted_metadata["institution_ror"] == "12345"
-        assert persisted_metadata["document_types"] == ["article", "review"]
+        assert persisted_metadata["document_types"] == [
+            "article",
+            "review",
+            "book",
+            "book-chapter",
+            "dataset",
+            "preprint",
+        ]
         assert persisted_metadata["analysis"] == {"window_years": 5, "end_year_offset": 1}
         assert persisted_metadata["update_schedule"] == {
             "frequency": "semiannual",

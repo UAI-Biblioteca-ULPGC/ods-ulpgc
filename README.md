@@ -134,8 +134,9 @@ The OpenAlex client is designed for reliability and reproducibility:
 - Falls back to anonymous access with a descriptive `User-Agent` header
   when no key is configured.
 - Accepts filtering by either OpenAlex institution ID or ROR identifier.
-- Accepts configurable document types: `article`, `review`,
-  `book-chapter`, and others.
+- Accepts configurable document types. The bundled ULPGC profile currently
+  includes `article`, `review`, `book`, `book-chapter`, `dataset`, and
+  `preprint`.
 - Logs pagination cursors, API-key usage, and record counts for
   traceability.
 

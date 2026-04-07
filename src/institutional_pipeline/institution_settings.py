@@ -121,7 +121,10 @@ def load_institution_settings(
         or None,
         institution_ror=str(institution.get("ror", "")).strip() or None,
         document_types=_as_tuple_of_strings(
-            openalex.get("document_types", ["article", "review"]),
+            openalex.get(
+                "document_types",
+                ["article", "review", "book", "book-chapter", "dataset", "preprint"],
+            ),
             field_name="openalex.document_types",
         ),
         spreadsheet_name=str(
