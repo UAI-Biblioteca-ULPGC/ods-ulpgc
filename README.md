@@ -125,8 +125,10 @@ the workflow skips artifact upload and publishing steps.
 
 The OpenAlex client is designed for reliability and reproducibility:
 
-- Declares a descriptive `User-Agent` header on every request.
-- Supports the `OPENALEX_API_KEY` environment variable when available.
+- Authenticates via `OPENALEX_API_KEY` when available, which grants
+  higher rate limits and ensures institutional traceability.
+- Falls back to anonymous access with a descriptive `User-Agent` header
+  when no key is configured.
 - Accepts filtering by either OpenAlex institution ID or ROR identifier.
 - Accepts configurable document types: `article`, `review`,
   `book-chapter`, and others.
