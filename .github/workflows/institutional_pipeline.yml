@@ -9,7 +9,8 @@ on:
         type: boolean
         default: true
   schedule:
-    - cron: "15 2 * * *"
+    - cron: "15 2 1 1 *"
+    - cron: "15 2 1 7 *"
 
 jobs:
   update-and-publish:
