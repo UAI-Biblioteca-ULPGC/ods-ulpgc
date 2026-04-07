@@ -1,5 +1,8 @@
 # ODS-ULPGC: Institutional Research Output Pipeline
-[![Tests](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml/badge.svg)](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml) [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+[![Tests](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml/badge.svg)](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/igarate/ods-ulpgc/releases/tag/v1.0.0)
 
 ## Descripción institucional / Institutional Abstract
 
@@ -8,10 +11,10 @@ Biblioteca Universitaria de la Universidad de Las Palmas de Gran Canaria
 (ULPGC) para la recolección, transformación y publicación automatizada de
 la producción científica institucional a partir de OpenAlex. Los resultados
 alimentan un panel de visualización en Tableau Public orientado al
-seguimiento de los indicadores de investigación y la contribución
-institucional a los Objetivos de Desarrollo Sostenible (ODS) de la Agenda
-2030. La arquitectura del sistema es reutilizable: cualquier institución
-puede adaptar el pipeline modificando un único archivo de configuración.
+seguimiento de indicadores de investigación y la contribución institucional
+a los Objetivos de Desarrollo Sostenible (ODS) de la Agenda 2030. La
+arquitectura del sistema es reutilizable: cualquier institución puede
+adaptar el pipeline modificando un único archivo de configuración.
 
 ---
 
@@ -82,12 +85,12 @@ python -m institutional_pipeline.main --settings config/my_other_institution.tom
 The main workflow is defined in
 [`.github/workflows/institutional_pipeline.yml`](/C:/ods-ulpgc/.github/workflows/institutional_pipeline.yml).
 
-Two execution modes are available:
+Two execution modes are available.
 
 **Scheduled execution.** The workflow runs daily in GitHub Actions. The
 pipeline proceeds only when the current date matches the schedule defined
 in `config/institution.toml`. The default ULPGC profile triggers on
-January 1st and July 1st.
+1 January and 1 July each year.
 
 **Manual execution.** A `workflow_dispatch` run executes immediately,
 regardless of the configured schedule.
@@ -111,10 +114,10 @@ The production sequence follows five stages:
 
 1. Fetch works from OpenAlex using the configured institution profile.
 2. Transform the raw response into three analytical tables:
-   `publications`, `sdg_exploded`, and `kpis_yearly`.
-   In `sdg_exploded`, every publication is retained even when no SDG is
-   assigned; those rows keep `sdg_code`, `sdg_label`, and `score` empty so
-   downstream statistics and visualizations can preserve the full corpus.
+   `publications`, `sdg_exploded`, and `kpis_yearly`. In `sdg_exploded`,
+   every publication is retained even when no SDG is assigned; those rows
+   keep `sdg_code`, `sdg_label`, and `score` empty so downstream
+   statistics and visualizations can preserve the full corpus.
 3. Persist raw data, processed outputs, snapshot metadata, and the
    `refresh_log`.
 4. Compress the raw JSON and retain it as a GitHub Actions artifact.
@@ -127,18 +130,16 @@ the workflow skips artifact upload and publishing steps.
 
 ## OpenAlex Integration
 
-The OpenAlex client is designed for reliability and reproducibility:
+The OpenAlex client authenticates via `OPENALEX_API_KEY` when available,
+which grants higher rate limits and ensures institutional traceability. It
+falls back to anonymous access with a descriptive `User-Agent` header when
+no key is configured. Additional client capabilities include:
 
-- Authenticates via `OPENALEX_API_KEY` when available, which grants
-  higher rate limits and ensures institutional traceability.
-- Falls back to anonymous access with a descriptive `User-Agent` header
-  when no key is configured.
-- Accepts filtering by either OpenAlex institution ID or ROR identifier.
-- Accepts configurable document types. The bundled ULPGC profile currently
-  includes `article`, `review`, `book`, `book-chapter`, `dataset`, and
-  `preprint`.
-- Logs pagination cursors, API-key usage, and record counts for
-  traceability.
+- Filtering by either OpenAlex institution ID or ROR identifier.
+- Configurable document types. The bundled ULPGC profile includes
+  `article`, `review`, `book`, `book-chapter`, `dataset`, and `preprint`.
+- Logging of pagination cursors, API-key usage, and record counts for
+  operational traceability.
 
 ## Apps Script Publishing
 
@@ -152,8 +153,8 @@ The publishing layer implements four operational safeguards:
 - Google Sheets updates use a staging-and-promotion pattern.
 - Temporary sheets are rolled back and cleaned up if promotion fails.
 
-The following Apps Script project properties must be set in the Apps
-Script environment (not in the Python `.env` file):
+The following project properties must be set directly in the Apps Script
+environment, not in the Python `.env` file:
 
 - `ROOT_FOLDER_ID`
 - `SPREADSHEET_ID`
@@ -218,17 +219,16 @@ Current test coverage spans:
 
 ## Implementation Notes
 
-The current codebase was reviewed against the local implementation and
-verified against the external behaviour of `python-dotenv` and `requests`
-via Context7. Three areas were confirmed to align with documented
-behaviour:
+The codebase was reviewed against the local implementation and verified
+against the external behaviour of `python-dotenv` and `requests` via
+Context7. Three areas align with documented behaviour:
 
-- `load_dotenv()` is invoked at CLI entry points only, consistent with
-  the intent to keep library imports side-effect free.
-- `requests` calls carry explicit per-request timeouts; timeouts are
-  not set globally on the session, which matches the library's design.
-- JSON decoding is wrapped so that malformed responses surface as
-  controlled runtime errors rather than silent failures.
+- `load_dotenv()` is invoked at CLI entry points only, keeping library
+  imports side-effect free.
+- `requests` calls carry explicit per-request timeouts, not set globally
+  on the session.
+- JSON decoding is wrapped so malformed responses surface as controlled
+  runtime errors rather than silent failures.
 
 No documentation-level discrepancies requiring code changes were
 identified in this review pass.
