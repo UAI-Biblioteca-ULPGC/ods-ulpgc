@@ -34,6 +34,17 @@ That channel is reserved for analytical outputs, the `refresh_log`, and
 snapshot metadata. Raw JSON is retained as a compressed GitHub Actions
 artifact.
 
+## Public Visualization
+
+The public dashboard generated from this pipeline is available on Tableau
+Public:
+
+[ULPGC research output and its contribution to the SDGs](https://public.tableau.com/views/LaULPCysucontribucincientficaalosODS/Historia1?:language=es-ES&:sid=&:redirect=auth&:display_count=n&:origin=viz_share_link)
+
+It provides an external view of the institutional outputs derived from the
+pipeline and supports exploratory analysis of ULPGC's contribution to the
+Sustainable Development Goals.
+
 ## Quick Start
 
 Install dependencies and run the pipeline locally:
