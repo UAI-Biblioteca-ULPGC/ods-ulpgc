@@ -1,8 +1,8 @@
 # ODS-ULPGC: Institutional Research Output Pipeline
 
-[![Tests](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml/badge.svg)](https://github.com/igarate/ods-ulpgc/actions/workflows/tests.yml)
+[![Tests](https://github.com/UAI-Biblioteca-ULPGC/ods-ulpgc/actions/workflows/tests.yml/badge.svg)](https://github.com/UAI-Biblioteca-ULPGC/ods-ulpgc/actions/workflows/tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/igarate/ods-ulpgc/releases/tag/v1.0.0)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/UAI-Biblioteca-ULPGC/ods-ulpgc/releases/tag/v1.0.0)
 
 ## Descripción institucional / Institutional Abstract
 
