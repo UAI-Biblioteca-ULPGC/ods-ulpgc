@@ -5,8 +5,7 @@ from __future__ import annotations
 import json
 from datetime import date
 from pathlib import Path
-import shutil
-import tempfile
+from uuid import uuid4
 
 import pandas as pd
 import pytest
@@ -34,64 +33,68 @@ def _build_test_settings() -> InstitutionSettings:
 
 def _configure_snapshot_paths(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
+    temp_id: str,
 ) -> dict[str, Path]:
     """Point snapshot manager outputs to temporary files."""
-    raw_latest = tmp_path / "raw" / "latest" / "openalex_works_latest.json"
-    raw_archive_dir = tmp_path / "raw" / "archive"
-    processed_latest_dir = tmp_path / "processed" / "latest"
-    processed_archive_dir = tmp_path / "processed" / "archive"
-    logs_dir = tmp_path / "logs"
-    manifests_dir = tmp_path / "manifests"
+    raw_latest = Path("data/raw/latest") / f"openalex_works_latest_{temp_id}.json"
+    raw_archive_dir = Path("data/raw/archive")
+    processed_latest_dir = Path("data/processed/latest")
+    processed_archive_dir = Path("data/processed/archive")
+    logs_dir = Path("data/logs")
+    manifests_dir = Path("data/manifests")
 
-    raw_latest.parent.mkdir(parents=True)
-    raw_archive_dir.mkdir(parents=True)
-    processed_latest_dir.mkdir(parents=True)
-    processed_archive_dir.mkdir(parents=True)
-    logs_dir.mkdir(parents=True)
-    manifests_dir.mkdir(parents=True)
+    raw_latest.parent.mkdir(parents=True, exist_ok=True)
+    raw_archive_dir.mkdir(parents=True, exist_ok=True)
+    processed_latest_dir.mkdir(parents=True, exist_ok=True)
+    processed_archive_dir.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    manifests_dir.mkdir(parents=True, exist_ok=True)
 
     monkeypatch.setattr(snapshot_manager, "RAW_LATEST_PATH", raw_latest)
     monkeypatch.setattr(
         snapshot_manager,
         "PROCESSED_LATEST_PUBLICATIONS",
-        processed_latest_dir / "publications_latest.csv",
+        processed_latest_dir / f"publications_latest_{temp_id}.csv",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "PROCESSED_LATEST_SDG",
-        processed_latest_dir / "sdg_exploded_latest.csv",
+        processed_latest_dir / f"sdg_exploded_latest_{temp_id}.csv",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "PROCESSED_LATEST_KPIS",
-        processed_latest_dir / "kpis_yearly_latest.csv",
+        processed_latest_dir / f"kpis_yearly_latest_{temp_id}.csv",
     )
-    monkeypatch.setattr(snapshot_manager, "REFRESH_LOG_PATH", logs_dir / "refresh_log.csv")
+    monkeypatch.setattr(
+        snapshot_manager,
+        "REFRESH_LOG_PATH",
+        logs_dir / f"refresh_log_{temp_id}.csv",
+    )
     monkeypatch.setattr(
         snapshot_manager,
         "METADATA_PATH",
-        manifests_dir / "latest_snapshot_metadata.json",
+        manifests_dir / f"latest_snapshot_metadata_{temp_id}.json",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "build_raw_archive_path",
-        lambda snapshot_label: raw_archive_dir / f"openalex_works_{snapshot_label}.json",
+        lambda snapshot_label: raw_archive_dir / f"openalex_works_{snapshot_label}_{temp_id}.json",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "build_processed_archive_publications_path",
-        lambda snapshot_label: processed_archive_dir / f"publications_{snapshot_label}.csv",
+        lambda snapshot_label: processed_archive_dir / f"publications_{snapshot_label}_{temp_id}.csv",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "build_processed_archive_sdg_path",
-        lambda snapshot_label: processed_archive_dir / f"sdg_exploded_{snapshot_label}.csv",
+        lambda snapshot_label: processed_archive_dir / f"sdg_exploded_{snapshot_label}_{temp_id}.csv",
     )
     monkeypatch.setattr(
         snapshot_manager,
         "build_processed_archive_kpis_path",
-        lambda snapshot_label: processed_archive_dir / f"kpis_yearly_{snapshot_label}.csv",
+        lambda snapshot_label: processed_archive_dir / f"kpis_yearly_{snapshot_label}_{temp_id}.csv",
     )
     return {
         "raw_latest": raw_latest,
@@ -104,9 +107,9 @@ def test_snapshot_outputs_and_refresh_log_are_written(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Snapshot helpers should persist raw data, CSVs, metadata, and the refresh log."""
-    temp_dir = Path(tempfile.mkdtemp(dir=".", prefix="test-snapshot-"))
+    temp_id = uuid4().hex
     try:
-        paths = _configure_snapshot_paths(monkeypatch, temp_dir)
+        paths = _configure_snapshot_paths(monkeypatch, temp_id)
         raw_works = [{"id": "W1", "display_name": "Example"}]
         snapshot_label = "20260101T000000Z"
 
@@ -172,16 +175,28 @@ def test_snapshot_outputs_and_refresh_log_are_written(
         assert refresh_log_df["snapshot_label"].tolist() == [snapshot_label]
         assert refresh_log_df["status"].tolist() == ["success"]
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        for path in [
+            paths["raw_latest"],
+            paths["metadata"],
+            paths["refresh_log"],
+            snapshot_manager.PROCESSED_LATEST_PUBLICATIONS,
+            snapshot_manager.PROCESSED_LATEST_SDG,
+            snapshot_manager.PROCESSED_LATEST_KPIS,
+            snapshot_manager.build_raw_archive_path(snapshot_label),
+            snapshot_manager.build_processed_archive_publications_path(snapshot_label),
+            snapshot_manager.build_processed_archive_sdg_path(snapshot_label),
+            snapshot_manager.build_processed_archive_kpis_path(snapshot_label),
+        ]:
+            path.unlink(missing_ok=True)
 
 
 def test_append_refresh_log_normalizes_legacy_schema(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Existing refresh logs should be normalized to the stable schema on append."""
-    temp_dir = Path(tempfile.mkdtemp(dir=".", prefix="test-snapshot-"))
+    temp_id = uuid4().hex
     try:
-        paths = _configure_snapshot_paths(monkeypatch, temp_dir)
+        paths = _configure_snapshot_paths(monkeypatch, temp_id)
         pd.DataFrame(
             [
                 {
@@ -222,4 +237,4 @@ def test_append_refresh_log_normalizes_legacy_schema(
         assert pd.isna(refresh_log_df.iloc[0]["run_timestamp_utc"])
         assert refresh_log_df.iloc[1]["run_timestamp_utc"] == "2026-07-01T00:00:01+00:00"
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        paths["refresh_log"].unlink(missing_ok=True)

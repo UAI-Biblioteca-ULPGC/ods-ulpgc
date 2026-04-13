@@ -6,6 +6,7 @@ import base64
 import json
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 import pytest
 
@@ -36,21 +37,21 @@ class FakeResponse:
 
 def _configure_publish_paths(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
+    temp_id: str,
 ) -> dict[str, Path]:
     """Point publish module paths to temporary test files."""
-    processed_latest = tmp_path / "processed" / "latest"
-    logs_dir = tmp_path / "logs"
-    manifests_dir = tmp_path / "manifests"
-    processed_latest.mkdir(parents=True)
-    logs_dir.mkdir(parents=True)
-    manifests_dir.mkdir(parents=True)
+    processed_latest = Path("data/processed/latest")
+    logs_dir = Path("data/logs")
+    manifests_dir = Path("data/manifests")
+    processed_latest.mkdir(parents=True, exist_ok=True)
+    logs_dir.mkdir(parents=True, exist_ok=True)
+    manifests_dir.mkdir(parents=True, exist_ok=True)
 
-    publications = processed_latest / "publications_latest.csv"
-    sdg = processed_latest / "sdg_exploded_latest.csv"
-    kpis = processed_latest / "kpis_yearly_latest.csv"
-    log_path = logs_dir / "refresh_log.csv"
-    metadata_path = manifests_dir / "latest_snapshot_metadata.json"
+    publications = processed_latest / f"publications_latest_{temp_id}.csv"
+    sdg = processed_latest / f"sdg_exploded_latest_{temp_id}.csv"
+    kpis = processed_latest / f"kpis_yearly_latest_{temp_id}.csv"
+    log_path = logs_dir / f"refresh_log_{temp_id}.csv"
+    metadata_path = manifests_dir / f"latest_snapshot_metadata_{temp_id}.json"
 
     monkeypatch.setattr(publish_module, "PROCESSED_LATEST_PUBLICATIONS", publications)
     monkeypatch.setattr(publish_module, "PROCESSED_LATEST_SDG", sdg)
@@ -115,58 +116,66 @@ def test_build_payload_requires_environment_variables(
 
 def test_build_payload_reads_files_and_encodes_expected_fields(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
 ) -> None:
     """Payload builder should encode all publishable files and metadata."""
-    paths = _configure_publish_paths(monkeypatch, tmp_path)
-    monkeypatch.setenv("APPS_SCRIPT_WEBAPP_URL", "https://example.org/webhook")
-    monkeypatch.setenv("APPS_SCRIPT_SHARED_SECRET", "shared-secret")
-    monkeypatch.setenv("APPS_SCRIPT_MAX_FILE_BYTES", "1024")
+    temp_id = uuid4().hex
+    try:
+        paths = _configure_publish_paths(monkeypatch, temp_id)
+        monkeypatch.setenv("APPS_SCRIPT_WEBAPP_URL", "https://example.org/webhook")
+        monkeypatch.setenv("APPS_SCRIPT_SHARED_SECRET", "shared-secret")
+        monkeypatch.setenv("APPS_SCRIPT_MAX_FILE_BYTES", "1024")
 
-    paths["publications"].write_text("id,title\n1,Example\n", encoding="utf-8")
-    paths["sdg"].write_text("work_id,sdg_code\n1,3\n", encoding="utf-8")
-    paths["kpis"].write_text("publication_year,total_publications\n2025,1\n", encoding="utf-8")
-    paths["log"].write_text("snapshot_label,status\n20250101T000000Z,success\n", encoding="utf-8")
-    metadata = {
-        "latest_snapshot": {
-            "snapshot_date": "2025-01-01",
-            "snapshot_label": "20250101T000000Z",
-            "analysis_start_year": 2021,
-            "analysis_end_year": 2025,
+        paths["publications"].write_text("id,title\n1,Example\n", encoding="utf-8")
+        paths["sdg"].write_text("work_id,sdg_code\n1,3\n", encoding="utf-8")
+        paths["kpis"].write_text("publication_year,total_publications\n2025,1\n", encoding="utf-8")
+        paths["log"].write_text("snapshot_label,status\n20250101T000000Z,success\n", encoding="utf-8")
+        metadata = {
+            "latest_snapshot": {
+                "snapshot_date": "2025-01-01",
+                "snapshot_label": "20250101T000000Z",
+                "analysis_start_year": 2021,
+                "analysis_end_year": 2025,
+            }
         }
-    }
-    paths["metadata"].write_text(json.dumps(metadata), encoding="utf-8")
+        paths["metadata"].write_text(json.dumps(metadata), encoding="utf-8")
 
-    payload = publish_module.build_payload()
+        payload = publish_module.build_payload()
 
-    assert payload["secret"] == "shared-secret"
-    assert payload["snapshot_label"] == "20250101T000000Z"
-    assert payload["analysis_end_year"] == 2025
-    assert (
-        base64.b64decode(payload["publications_csv_base64"])
-        .decode("utf-8")
-        .replace("\r\n", "\n")
-        == "id,title\n1,Example\n"
-    )
-    decoded_metadata = json.loads(
-        base64.b64decode(payload["metadata_json_base64"]).decode("utf-8")
-    )
-    assert decoded_metadata == metadata
+        assert payload["secret"] == "shared-secret"
+        assert payload["snapshot_label"] == "20250101T000000Z"
+        assert payload["analysis_end_year"] == 2025
+        assert (
+            base64.b64decode(payload["publications_csv_base64"])
+            .decode("utf-8")
+            .replace("\r\n", "\n")
+            == "id,title\n1,Example\n"
+        )
+        decoded_metadata = json.loads(
+            base64.b64decode(payload["metadata_json_base64"]).decode("utf-8")
+        )
+        assert decoded_metadata == metadata
+    finally:
+        for path in paths.values():
+            path.unlink(missing_ok=True)
 
 
 def test_validate_publishable_sizes_raises_for_oversized_files(
     monkeypatch: pytest.MonkeyPatch,
-    tmp_path: Path,
 ) -> None:
     """Oversized files should fail before making the webhook request."""
-    paths = _configure_publish_paths(monkeypatch, tmp_path)
-    for path in paths.values():
-        path.write_text("0123456789", encoding="utf-8")
+    temp_id = uuid4().hex
+    try:
+        paths = _configure_publish_paths(monkeypatch, temp_id)
+        for path in paths.values():
+            path.write_text("0123456789", encoding="utf-8")
 
-    monkeypatch.setenv("APPS_SCRIPT_MAX_FILE_BYTES", "5")
+        monkeypatch.setenv("APPS_SCRIPT_MAX_FILE_BYTES", "5")
 
-    with pytest.raises(ValueError, match="exceed the Apps Script publish threshold"):
-        publish_module.validate_publishable_sizes()
+        with pytest.raises(ValueError, match="exceed the Apps Script publish threshold"):
+            publish_module.validate_publishable_sizes()
+    finally:
+        for path in paths.values():
+            path.unlink(missing_ok=True)
 
 
 def test_publish_payload_posts_json_and_requires_ok_status(

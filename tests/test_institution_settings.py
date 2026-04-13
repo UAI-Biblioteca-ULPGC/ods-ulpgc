@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import shutil
-import tempfile
+from uuid import uuid4
 
 import pytest
 
@@ -13,9 +13,8 @@ from institutional_pipeline.institution_settings import load_institution_setting
 
 def test_load_institution_settings_reads_custom_toml() -> None:
     """Custom TOML settings should override the bundled defaults."""
-    temp_dir = Path(tempfile.mkdtemp(dir=".", prefix="test-settings-"))
+    settings_path = Path("config") / f"tmp_test_settings_{uuid4().hex}.toml"
     try:
-        settings_path = temp_dir / "institution.toml"
         settings_path.write_text(
             "\n".join(
                 [
@@ -44,7 +43,7 @@ def test_load_institution_settings_reads_custom_toml() -> None:
 
         settings = load_institution_settings(settings_path)
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        settings_path.unlink(missing_ok=True)
 
     assert settings.project_slug == "demo-project"
     assert settings.institution_name == "Demo University"
@@ -60,9 +59,8 @@ def test_load_institution_settings_reads_custom_toml() -> None:
 
 def test_load_institution_settings_requires_an_identifier() -> None:
     """At least one institution selector should be configured."""
-    temp_dir = Path(tempfile.mkdtemp(dir=".", prefix="test-settings-"))
+    settings_path = Path("config") / f"tmp_test_settings_{uuid4().hex}.toml"
     try:
-        settings_path = temp_dir / "institution.toml"
         settings_path.write_text(
             "\n".join(
                 [
@@ -81,4 +79,4 @@ def test_load_institution_settings_requires_an_identifier() -> None:
         with pytest.raises(ValueError, match="openalex_institution_id or institution.ror"):
             load_institution_settings(settings_path)
     finally:
-        shutil.rmtree(temp_dir, ignore_errors=True)
+        settings_path.unlink(missing_ok=True)

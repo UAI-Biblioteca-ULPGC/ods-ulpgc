@@ -28,6 +28,3 @@ data/logs/**
 !data/manifests/latest_snapshot_metadata.json
 *latest_snapshot_metadata.json
 
-# Temporary test directories
-test-settings-*/
-test-snapshot-*/
